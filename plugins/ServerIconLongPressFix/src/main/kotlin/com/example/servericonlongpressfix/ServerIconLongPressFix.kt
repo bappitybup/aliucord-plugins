@@ -8,14 +8,14 @@ import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
 import com.aliucord.patcher.*
-import com.discord.widgets.guilds.contextmenu.WidgetGuildContextMenu
-import com.discord.widgets.guilds.list.GuildListViewHolder.GuildViewHolder
+import com.discord.widgets.guilds.contextmenu.*
+import com.discord.widgets.guilds.list.GuildListViewHolder.FolderViewHolder
 import com.discord.widgets.guilds.list.GuildsDragAndDropCallback
 
 @AliucordPlugin
 class ServerIconLongPressFix : Plugin() {
     private var helper: ItemTouchHelper? = null
-    private var holder: GuildViewHolder? = null
+    private var holder: RecyclerView.ViewHolder? = null
     private var held = false
 
     override fun start(context: Context) {
@@ -35,29 +35,31 @@ class ServerIconLongPressFix : Plugin() {
             if (mRecyclerView != null) helper = this else if (helper === this) clear()
         }
 
-        patcher.before<ViewGroup>("dispatchTouchEvent", MotionEvent::class.java) { p ->
-            if (this === helper?.mRecyclerView) touch(p.args[0] as MotionEvent)
+        patcher.before<ItemTouchHelper>("findAnimation", MotionEvent::class.java) { p ->
+            if (this !== helper) return@before
+            held = false
+            val e = p.args[0] as MotionEvent
+            holder = mRecyclerView.findChildViewUnder(e.x, e.y)?.let(mRecyclerView::getChildViewHolder)
+        }
+
+        patcher.before<ItemTouchHelper>(
+            "checkSelectForSwipe", Int::class.javaPrimitiveType!!,
+            MotionEvent::class.java, Int::class.javaPrimitiveType!!,
+        ) { p ->
+            if (this !== helper || !held || p.args[0] != MotionEvent.ACTION_MOVE) return@before
+            val drag = holder ?: return@before
+            if (drag !is GuildsDragAndDropCallback.DraggableViewHolder || !drag.canDrag()) return@before
+            holder = null
+            hideMenu(drag)
+            startDrag(drag)
         }
     }
 
-    private fun touch(e: MotionEvent) {
-        val recycler = helper?.mRecyclerView ?: return
-        when (e.actionMasked) {
-            MotionEvent.ACTION_DOWN -> {
-                held = false
-                holder = recycler.findChildViewUnder(e.x, e.y)?.let(recycler::getChildViewHolder) as? GuildViewHolder
-            }
-            MotionEvent.ACTION_MOVE -> {
-                val drag = holder ?: return
-                if (held && drag.canDrag()) { holder = null; hideMenu(); helper?.startDrag(drag) }
-            }
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> holder = null
-        }
-    }
-
-    private fun hideMenu() {
+    private fun hideMenu(holder: RecyclerView.ViewHolder) {
         try {
-            val menu = WidgetGuildContextMenu::class.java.getField("INSTANCE")[null]
+            val type = if (holder is FolderViewHolder) WidgetFolderContextMenu::class.java
+                else WidgetGuildContextMenu::class.java
+            val menu = type.getField("INSTANCE")[null]
             menu.javaClass.getMethod("hide", FragmentActivity::class.java, Boolean::class.java)(menu, Utils.appActivity, false)
         } catch (e: Throwable) { logger.warn("Menu hide failed", e) }
     }
