@@ -38,10 +38,10 @@ subprojects {
 
     configure<AliucordExtension> {
         // TODO: Change to your name and user ID
-        author("yournamehere", 0L, hyperlink = true)
+        author("bappity", 0L, hyperlink = true)
 
         // TODO: Change to your repository
-        github("https://github.com/Aliucord/plugins-template")
+        github("https://github.com/bappitybup/aliucord-plugins")
     }
 
     configure<KtlintExtension> {
