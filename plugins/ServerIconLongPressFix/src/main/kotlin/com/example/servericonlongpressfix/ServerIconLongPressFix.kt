@@ -8,47 +8,48 @@ import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
 import com.aliucord.patcher.*
+import com.discord.utilities.view.extensions.RecyclerViewExtensionsKt
 import com.discord.widgets.guilds.contextmenu.*
 import com.discord.widgets.guilds.list.GuildListViewHolder.FolderViewHolder
 import com.discord.widgets.guilds.list.GuildsDragAndDropCallback
 
 @AliucordPlugin
 class ServerIconLongPressFix : Plugin() {
-    private var helper: ItemTouchHelper? = null
     private var holder: RecyclerView.ViewHolder? = null
     private var held = false
 
     override fun start(context: Context) {
         patcher.before<ItemTouchHelper.Callback>(
             "hasDragFlag", RecyclerView::class.java, RecyclerView.ViewHolder::class.java,
-        ) { p -> if (p.args[1] === holder) p.result = false }
-
-        patcher.patch(
-            "com.discord.utilities.view.extensions.RecyclerViewExtensionsKt", "ignoreCurrentTouch",
-            arrayOf(RecyclerView::class.java), PreHook { p ->
-                if (holder != null && helper?.mRecyclerView === p.args[0]) { held = true; p.result = null }
-            },
-        )
-
-        patcher.after<ItemTouchHelper>("attachToRecyclerView", RecyclerView::class.java) {
-            if (mCallback !is GuildsDragAndDropCallback) return@after
-            if (mRecyclerView != null) helper = this else if (helper === this) clear()
+        ) { (p, _: RecyclerView, guild: RecyclerView.ViewHolder) ->
+            if (guild === holder) p.result = false
         }
 
-        patcher.before<ItemTouchHelper>("findAnimation", MotionEvent::class.java) { p ->
-            if (this !== helper) return@before
+        patcher.before<RecyclerViewExtensionsKt?>(
+            "ignoreCurrentTouch", RecyclerView::class.java,
+        ) { (param, recyclerView: RecyclerView) ->
+            val guild = holder ?: return@before
+            if (guild.itemView.parent === recyclerView) {
+                held = true
+                param.result = null
+            }
+        }
+
+        patcher.before<ItemTouchHelper>("findAnimation", MotionEvent::class.java) { (_, event: MotionEvent) ->
+            if (mCallback !is GuildsDragAndDropCallback) return@before
             held = false
-            val e = p.args[0] as MotionEvent
-            holder = mRecyclerView.findChildViewUnder(e.x, e.y)?.let(mRecyclerView::getChildViewHolder)
+            holder = mRecyclerView.findChildViewUnder(event.x, event.y)
+                ?.let(mRecyclerView::getChildViewHolder)
         }
 
         patcher.before<ItemTouchHelper>(
             "checkSelectForSwipe", Int::class.javaPrimitiveType!!,
             MotionEvent::class.java, Int::class.javaPrimitiveType!!,
-        ) { p ->
-            if (this !== helper || !held || p.args[0] != MotionEvent.ACTION_MOVE) return@before
+        ) { (_, action: Int, _: MotionEvent, _: Int) ->
             val drag = holder ?: return@before
-            if (drag !is GuildsDragAndDropCallback.DraggableViewHolder || !drag.canDrag()) return@before
+            if (mCallback !is GuildsDragAndDropCallback || !held ||
+                action != MotionEvent.ACTION_MOVE ||
+                drag !is GuildsDragAndDropCallback.DraggableViewHolder || !drag.canDrag()) return@before
             holder = null
             hideMenu(drag)
             startDrag(drag)
@@ -56,14 +57,12 @@ class ServerIconLongPressFix : Plugin() {
     }
 
     private fun hideMenu(holder: RecyclerView.ViewHolder) {
-        try {
-            val type = if (holder is FolderViewHolder) WidgetFolderContextMenu::class.java
-                else WidgetGuildContextMenu::class.java
-            val menu = type.getField("INSTANCE")[null]
-            menu.javaClass.getMethod("hide", FragmentActivity::class.java, Boolean::class.java)(menu, Utils.appActivity, false)
-        } catch (e: Throwable) { logger.warn("Menu hide failed", e) }
+        if (holder is FolderViewHolder)
+            WidgetFolderContextMenu.Companion!!.hide(Utils.appActivity, false)
+        else
+            WidgetGuildContextMenu.Companion!!.hide(Utils.appActivity, false)
     }
 
-    private fun clear() { helper = null; holder = null }
+    private fun clear() { holder = null }
     override fun stop(context: Context) { patcher.unpatchAll(); clear() }
 }
