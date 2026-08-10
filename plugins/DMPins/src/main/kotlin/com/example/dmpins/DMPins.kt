@@ -15,6 +15,9 @@ import com.discord.restapi.RestAPIParams
 import com.discord.stores.StoreStream
 import com.discord.utilities.rest.RestAPI
 import com.discord.widgets.channels.list.WidgetChannelsListItemChannelActions
+import com.discord.widgets.channels.list.WidgetChannelListModel
+import com.discord.widgets.channels.list.WidgetChannelsList
+import com.discord.widgets.channels.list.items.ChannelListItemPrivate
 import com.lytefast.flexinput.R
 
 private const val PRIVATE_CHANNELS_ID = 0L
@@ -44,6 +47,28 @@ class DMPins : Plugin() {
                     }
                 }
         }
+
+        // sort dm rows
+        patcher.before<WidgetChannelsList>(
+            "configureUI", WidgetChannelListModel::class.java,
+        ) { (param, model: WidgetChannelListModel) ->
+            if (model.isGuildSelected) return@before
+
+            val (pinnedDMs, otherDMs) = model.items.partition { item ->
+                item is ChannelListItemPrivate && isPinned(item.channel.id)
+            }
+
+            val items = pinnedDMs + otherDMs
+
+            param.args[0] = model.copy(
+                model.selectedGuild,
+                items,
+                model.isGuildSelected,
+                model.showPremiumGuildHint,
+                model.showEmptyState,
+                model.guildScheduledEvents,
+            )
+        }
     }
 
     private fun getFlags(id: Long) = StoreStream.getUserGuildSettings()
@@ -51,6 +76,9 @@ class DMPins : Plugin() {
         ?.getChannelOverride(id)
         ?.flags
         ?: 0
+
+    private fun isPinned(id: Long) =
+        getFlags(id) and PINNED_FLAG != 0
 
     private fun setPinned(id: Long, pinned: Boolean) {
         val flags = getFlags(id)
