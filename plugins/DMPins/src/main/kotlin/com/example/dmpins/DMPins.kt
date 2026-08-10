@@ -5,6 +5,7 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
 import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
@@ -52,6 +53,17 @@ class DMPins : Plugin() {
                         dismiss()
                     }
                 }
+        }
+
+        // rebind pin glyphs
+        patcher.after<WidgetChannelsList>(
+            "configureUI",
+            WidgetChannelListModel::class.java,
+        ) {
+            requireView()
+                .findViewById<RecyclerView>("channels_list")
+                .adapter
+                ?.notifyDataSetChanged()
         }
 
         // show glyph on pinned dm rows
