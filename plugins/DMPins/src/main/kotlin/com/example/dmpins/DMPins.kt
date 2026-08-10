@@ -2,21 +2,27 @@ package com.example.dmpins
 
 import android.content.Context
 import android.view.View
+import android.widget.ImageView
+import android.widget.RelativeLayout
 import android.widget.TextView
 import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
 import com.aliucord.patcher.*
+import com.aliucord.utils.DimenUtils.dp
 import com.aliucord.utils.RxUtils.await
+import com.aliucord.utils.ViewUtils.addTo
 import com.aliucord.utils.ViewUtils.findViewById
 import com.aliucord.wrappers.ChannelWrapper.Companion.id
 import com.aliucord.wrappers.ChannelWrapper.Companion.isDM
 import com.discord.restapi.RestAPIParams
 import com.discord.stores.StoreStream
 import com.discord.utilities.rest.RestAPI
-import com.discord.widgets.channels.list.WidgetChannelsListItemChannelActions
 import com.discord.widgets.channels.list.WidgetChannelListModel
 import com.discord.widgets.channels.list.WidgetChannelsList
+import com.discord.widgets.channels.list.WidgetChannelsListAdapter
+import com.discord.widgets.channels.list.WidgetChannelsListItemChannelActions
+import com.discord.widgets.channels.list.items.ChannelListItem
 import com.discord.widgets.channels.list.items.ChannelListItemPrivate
 import com.lytefast.flexinput.R
 
@@ -46,6 +52,30 @@ class DMPins : Plugin() {
                         dismiss()
                     }
                 }
+        }
+
+        // show glyph on pinned dm rows
+        patcher.after<WidgetChannelsListAdapter.ItemChannelPrivate>(
+            "onConfigure", Int::class.java, ChannelListItem::class.java,
+        ) { (_, _: Int, item: ChannelListItem) ->
+            val row = itemView as RelativeLayout
+            val name = row.findViewById<TextView>("channels_list_item_private_name")
+            val icon = row.findViewWithTag<ImageView>("DMPins")
+                ?: ImageView(row.context).addTo(row) {
+                    tag = "DMPins"
+                    setImageResource(R.e.ic_pin_24dp)
+                    layoutParams = RelativeLayout.LayoutParams(12.dp, 12.dp).apply {
+                        addRule(RelativeLayout.ALIGN_PARENT_TOP)
+                        addRule(RelativeLayout.ALIGN_PARENT_END)
+                        topMargin = 4.dp
+                        marginEnd = 8.dp
+                    }
+                }
+
+            val pinned = isPinned((item as ChannelListItemPrivate).channel.id)
+
+            icon.visibility = if (pinned) View.VISIBLE else View.GONE
+            icon.setColorFilter(name.currentTextColor)
         }
 
         // sort dm rows
