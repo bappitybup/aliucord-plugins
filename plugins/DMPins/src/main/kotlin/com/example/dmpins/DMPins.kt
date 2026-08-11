@@ -5,7 +5,6 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.RelativeLayout
 import android.widget.TextView
-import androidx.recyclerview.widget.RecyclerView
 import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
@@ -26,12 +25,15 @@ import com.discord.widgets.channels.list.WidgetChannelsListItemChannelActions
 import com.discord.widgets.channels.list.items.ChannelListItem
 import com.discord.widgets.channels.list.items.ChannelListItemPrivate
 import com.lytefast.flexinput.R
+import java.util.WeakHashMap
 
 private const val PRIVATE_CHANNELS_ID = 0L
 private const val PINNED_FLAG = 0x800
+private const val DM_ROW_END_TAG = "DMRowTopEnd"
 
 @AliucordPlugin
 class DMPins : Plugin() {
+    private val pinIcons = WeakHashMap<ImageView, Long>()
     override fun start(context: Context) {
         // add pin action to dm context menu
         patcher.after<WidgetChannelsListItemChannelActions>(
@@ -40,7 +42,7 @@ class DMPins : Plugin() {
             val channel = model.channel
             if (!channel.isDM()) return@after
 
-            val pinned = getFlags(channel.id) and PINNED_FLAG != 0
+            val pinned = isPinned(channel.id)
 
             requireView()
                 .findViewById<TextView>("text_action_thread_browser")
@@ -53,17 +55,6 @@ class DMPins : Plugin() {
                         dismiss()
                     }
                 }
-        }
-
-        // rebind pin glyphs
-        patcher.after<WidgetChannelsList>(
-            "configureUI",
-            WidgetChannelListModel::class.java,
-        ) {
-            requireView()
-                .findViewById<RecyclerView>("channels_list")
-                .adapter
-                ?.notifyDataSetChanged()
         }
 
         // show glyph on pinned dm rows
@@ -83,10 +74,26 @@ class DMPins : Plugin() {
                         marginEnd = 8.dp
                     }
                 }
+            val params = icon.layoutParams as RelativeLayout.LayoutParams
+            val end = row.findViewWithTag<View>(DM_ROW_END_TAG)
 
-            val pinned = isPinned((item as ChannelListItemPrivate).channel.id)
-
-            icon.visibility = if (pinned) View.VISIBLE else View.GONE
+            if (end != null) {
+                if (end.id == View.NO_ID)
+                    end.id = View.generateViewId()
+                
+                params.removeRule(RelativeLayout.ALIGN_PARENT_END)
+                params.addRule(RelativeLayout.START_OF, end.id)
+                params.marginEnd = 4.dp
+            } else {
+                params.removeRule(RelativeLayout.START_OF)
+                params.addRule(RelativeLayout.ALIGN_PARENT_END)
+                params.marginEnd = 8.dp
+            }
+            icon.layoutParams = params
+            
+            val id = (item as ChannelListItemPrivate).channel.id
+            pinIcons[icon] = id
+            icon.visibility = if (isPinned(id)) View.VISIBLE else View.GONE
             icon.setColorFilter(name.currentTextColor)
         }
 
@@ -101,6 +108,7 @@ class DMPins : Plugin() {
             }
 
             val items = pinnedDMs + otherDMs
+            if (items == model.items) return@before
 
             param.args[0] = model.copy(
                 model.selectedGuild,
@@ -125,6 +133,8 @@ class DMPins : Plugin() {
     private fun setPinned(id: Long, pinned: Boolean) {
         val flags = getFlags(id)
         val newFlags = if (pinned) flags or PINNED_FLAG else flags and PINNED_FLAG.inv()
+        val icon = pinIcons.entries.firstOrNull { it.value == id }?.key
+        icon?.visibility = if (pinned) View.VISIBLE else View.GONE
 
         Utils.threadPool.execute {
             val settings = RestAPIParams.UserGuildSettings(id, RestAPIParams.UserGuildSettings.ChannelOverride(null, newFlags))
@@ -134,10 +144,18 @@ class DMPins : Plugin() {
                 .await()
                 .second
 
-            if (error != null)
+            if (error != null) {
+                icon?.let { pinIcon ->
+                    pinIcon.post {
+                        if (pinIcons[pinIcon] == id)
+                            pinIcon.visibility = if (pinned) View.GONE else View.VISIBLE
+                    }
+                }
+
                 logger.error("Failed to update DM pin state for $id", error)
+            }
         }
     }
 
-    override fun stop(context: Context) { patcher.unpatchAll() }
+    override fun stop(context: Context) { patcher.unpatchAll(); pinIcons.clear() }
 }
