@@ -1,6 +1,7 @@
 package com.example.dmpins
 
 import android.content.Context
+import android.view.Gravity
 import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -68,39 +69,21 @@ class DMPins : Plugin() {
         ) { (_, _: Int, item: ChannelListItem) ->
             val row = itemView as RelativeLayout
             val name = row.findViewById<TextView>("channels_list_item_private_name")
-            val icon = row.findViewWithTag<ImageView>("DMPins")
-                ?: ImageView(row.context).addTo(row) {
+            val end = getEnd(row)
+            val icon = end.findViewWithTag<ImageView>("DMPins")
+                ?: ImageView(end.context).apply {
                     tag = "DMPins"
                     setImageResource(R.e.ic_pin_24dp)
-                    layoutParams = RelativeLayout.LayoutParams(12.dp, 12.dp).apply {
-                        addRule(RelativeLayout.ALIGN_PARENT_TOP)
-                        addRule(RelativeLayout.ALIGN_PARENT_END)
-                        topMargin = 4.dp
-                        marginEnd = 8.dp
+                    layoutParams = LinearLayout.LayoutParams(12.dp, 12.dp).apply {
+                        marginEnd = 4.dp
                     }
+                    end.addView(this, 0)
                 }
-            val params = icon.layoutParams as RelativeLayout.LayoutParams
-            val end = row.findViewWithTag<View>(DM_ROW_END_TAG)
-
-            if (end != null) {
-                if (end.id == View.NO_ID)
-                    end.id = View.generateViewId()
-                
-                params.removeRule(RelativeLayout.ALIGN_PARENT_END)
-                params.addRule(RelativeLayout.START_OF, end.id)
-                params.marginEnd = 4.dp
-            } else {
-                params.removeRule(RelativeLayout.START_OF)
-                params.addRule(RelativeLayout.ALIGN_PARENT_END)
-                params.marginEnd = 8.dp
-            }
-            icon.layoutParams = params
-            
             val id = (item as ChannelListItemPrivate).channel.id
             pinIcons[icon] = id
             icon.visibility = if (isPinned(id)) View.VISIBLE else View.GONE
             icon.setColorFilter(name.currentTextColor)
-            updateEndMargin(icon)
+            updateEndMargin(end)
         }
 
         // sort dm rows
@@ -150,9 +133,9 @@ class DMPins : Plugin() {
         pendingPins[id] = pinned
         val icons = pinIcons.entries.filter { it.value == id }.map { it.key }
 
-        icons.forEach {
-            it.visibility = if (pinned) View.VISIBLE else View.GONE
-            updateEndMargin(it)
+        icons.forEach { icon ->
+            icon.visibility = if (pinned) View.VISIBLE else View.GONE
+            (icon.parent as? LinearLayout)?.let(::updateEndMargin)
         }
 
         Utils.threadPool.execute {
@@ -169,31 +152,43 @@ class DMPins : Plugin() {
                     icon.post {
                         if (pinIcons[icon] == id) {
                             icon.visibility = if (isPinned(id)) View.VISIBLE else View.GONE
-                            updateEndMargin(icon)
+                            (icon.parent as? LinearLayout)?.let(::updateEndMargin)
                         }
                     }
-                    
+
                 }
                 logger.error("Failed to update DM pin state for $id", error)
             }
         }
     }
 
-    private fun updateEndMargin(icon: ImageView) {
-        val row = icon.parent as? RelativeLayout ?: return
-        val end = row.findViewWithTag<View>(DM_ROW_END_TAG) ?: return
+    private fun updateEndMargin(end: LinearLayout) {
+        val row = end.parent as? RelativeLayout ?: return
         val name = row.findViewById<TextView>("channels_list_item_private_name")
         val content = name.parent.parent as LinearLayout
-        val timestamp = end.findViewWithTag<TextView>("DMTimestamps")
-        val timestampWidth = if (timestamp?.visibility == View.VISIBLE)
-            timestamp.paint.measureText(timestamp.text.toString()).toInt()
-        else 0
-        val pinWidth = if (icon.visibility == View.VISIBLE) 16.dp else 0
         val params = content.layoutParams as RelativeLayout.LayoutParams
 
-        params.marginEnd = 16.dp + timestampWidth + pinWidth
+        end.measure(0, 0)
+        params.marginEnd = 16.dp + end.measuredWidth
         content.layoutParams = params
     }
+
+    private fun getEnd(row: RelativeLayout) =
+        row.findViewWithTag<LinearLayout>(DM_ROW_END_TAG)
+            ?: LinearLayout(row.context).addTo(row) {
+                tag = DM_ROW_END_TAG
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                layoutParams = RelativeLayout.LayoutParams(
+                    RelativeLayout.LayoutParams.WRAP_CONTENT,
+                    16.dp,
+                ).apply {
+                    addRule(RelativeLayout.ALIGN_PARENT_TOP)
+                    addRule(RelativeLayout.ALIGN_PARENT_END)
+                    topMargin = 2.dp
+                    marginEnd = 8.dp
+                }
+            }
 
     override fun stop(context: Context) { patcher.unpatchAll(); pinIcons.clear(); pendingPins.clear() }
 }
