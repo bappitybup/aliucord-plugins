@@ -1,7 +1,6 @@
 package com.example.uncappedtimestamps
 
 import android.content.Context
-import android.text.Layout
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -29,80 +28,70 @@ class UncappedTimestamps : Plugin() {
             val timestamp = itemTimestamp ?: return@after
             val header = name.parent as? ConstraintLayout ?: return@after
 
+            timestamp.allowWrapping(header, name, tag)
+            itemText.below(header.id)
             timestamp.post {
-                val inline = timestamp.placeTimestamp(header, name, tag)
-                itemText.below(if (inline) header.id else timestamp.id)
+                val wrapped = (timestamp.layout?.lineCount ?: 1) > 1
+                if (wrapped && timestamp.moveBelow(header, name, tag)) {
+                    itemText.below(timestamp.id)
+                }
             }
         }
     }
 
-    private fun TextView.placeTimestamp(
-        header: ConstraintLayout,
-        name: TextView,
-        tag: TextView,
-    ): Boolean {
-        val desiredWidth =
-            Layout.getDesiredWidth(text, paint) +
-                compoundPaddingLeft +
-                compoundPaddingRight
-
-        val availableWidth =
-            header.width - left
-
-        val inline =
-            !text.contains('\n') &&
-                desiredWidth <= availableWidth
-
-        val parent = if (inline) {
-            header
-        } else {
-            val outer = header.parent
-            outer as? ConstraintLayout ?: run {
-                return true
-            }
-        }
-
-        if (this.parent !== parent) {
-            (this.parent as? ViewGroup)?.removeView(this)
-            parent.addView(this)
+    private fun TextView.allowWrapping(header: ConstraintLayout, name: TextView, tag: TextView) {
+        header.minimumHeight = 0
+        if (parent !== header) {
+            (parent as? ViewGroup)?.removeView(this)
+            header.addView(this)
         }
 
         maxWidth = Int.MAX_VALUE
-        setSingleLine(inline)
-        maxLines = if (inline) 1 else Int.MAX_VALUE
+        setSingleLine(false)
         ellipsize = null
         setHorizontallyScrolling(false)
 
         layoutParams = (layoutParams as ConstraintLayout.LayoutParams).apply {
-                width = 0
-                startToStart = ConstraintLayout.LayoutParams.UNSET
-                startToEnd = ConstraintLayout.LayoutParams.UNSET
-                baselineToBaseline = ConstraintLayout.LayoutParams.UNSET
-                topToBottom = ConstraintLayout.LayoutParams.UNSET
+            width = 0
+            marginStart = 6.dp
+            startToStart = ConstraintLayout.LayoutParams.UNSET
+            startToEnd = tag.id
+            endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            topToBottom = ConstraintLayout.LayoutParams.UNSET
+            baselineToBaseline = name.id
+        }
+        requestLayout()
+    }
 
-                if (inline) {
-                    marginStart = 6.dp
-                    startToEnd = tag.id
-                    endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-                    baselineToBaseline = name.id
-                } else {
-                    marginStart = name.left
-                    startToStart = header.id
-                    endToEnd = header.id
-                    topToBottom = header.id
-                }
-            }
 
-        return inline
+    private fun TextView.moveBelow(header: ConstraintLayout, name: TextView, tag: TextView): Boolean {
+        val outer = header.parent as? ConstraintLayout ?: return false
+        val tagBottomMargin = (tag.layoutParams as ConstraintLayout.LayoutParams).bottomMargin
+
+        if (parent !== outer) {
+            (parent as? ViewGroup)?.removeView(this)
+            outer.addView(this)
+        }
+
+        header.minimumHeight = name.bottom + tagBottomMargin
+
+        layoutParams = (layoutParams as ConstraintLayout.LayoutParams).apply {
+            width = 0
+            marginStart = name.left
+            startToEnd = ConstraintLayout.LayoutParams.UNSET
+            baselineToBaseline = ConstraintLayout.LayoutParams.UNSET
+            startToStart = header.id
+            endToEnd = header.id
+            topToBottom = header.id
+        }
+        requestLayout()
+        return true
     }
 
     private fun TextView.below(viewId: Int) {
         (layoutParams as ConstraintLayout.LayoutParams).topToBottom = viewId
         requestLayout()
     }
-
-    private val TextView.contentWidth
-        get() = width - paddingLeft - paddingRight
 
     override fun stop(context: Context) = patcher.unpatchAll()
 }
