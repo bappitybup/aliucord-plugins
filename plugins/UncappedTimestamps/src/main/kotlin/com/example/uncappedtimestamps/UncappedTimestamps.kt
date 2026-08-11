@@ -1,6 +1,7 @@
 package com.example.uncappedtimestamps
 
 import android.content.Context
+import android.text.Layout
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -40,13 +41,25 @@ class UncappedTimestamps : Plugin() {
         name: TextView,
         tag: TextView,
     ): Boolean {
+        val desiredWidth =
+            Layout.getDesiredWidth(text, paint) +
+                compoundPaddingLeft +
+                compoundPaddingRight
+
+        val availableWidth =
+            header.width - left
+
         val inline =
-            paint.measureText(text.toString()) <= header.width - tag.right - 6.dp
+            !text.contains('\n') &&
+                desiredWidth <= availableWidth
 
         val parent = if (inline) {
             header
         } else {
-            header.parent as? ConstraintLayout ?: return true
+            val outer = header.parent
+            outer as? ConstraintLayout ?: run {
+                return true
+            }
         }
 
         if (this.parent !== parent) {
@@ -61,24 +74,24 @@ class UncappedTimestamps : Plugin() {
         setHorizontallyScrolling(false)
 
         layoutParams = (layoutParams as ConstraintLayout.LayoutParams).apply {
-            width = 0
-            startToStart = ConstraintLayout.LayoutParams.UNSET
-            startToEnd = ConstraintLayout.LayoutParams.UNSET
-            baselineToBaseline = ConstraintLayout.LayoutParams.UNSET
-            topToBottom = ConstraintLayout.LayoutParams.UNSET
+                width = 0
+                startToStart = ConstraintLayout.LayoutParams.UNSET
+                startToEnd = ConstraintLayout.LayoutParams.UNSET
+                baselineToBaseline = ConstraintLayout.LayoutParams.UNSET
+                topToBottom = ConstraintLayout.LayoutParams.UNSET
 
-            if (inline) {
-                marginStart = 6.dp
-                startToEnd = tag.id
-                endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
-                baselineToBaseline = name.id
-            } else {
-                marginStart = name.left
-                startToStart = header.id
-                endToEnd = header.id
-                topToBottom = header.id
+                if (inline) {
+                    marginStart = 6.dp
+                    startToEnd = tag.id
+                    endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+                    baselineToBaseline = name.id
+                } else {
+                    marginStart = name.left
+                    startToStart = header.id
+                    endToEnd = header.id
+                    topToBottom = header.id
+                }
             }
-        }
 
         return inline
     }
