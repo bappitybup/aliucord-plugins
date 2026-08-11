@@ -3,6 +3,7 @@ package com.example.dmpins
 import android.content.Context
 import android.view.View
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import com.aliucord.Utils
@@ -26,10 +27,14 @@ import com.discord.widgets.channels.list.items.ChannelListItem
 import com.discord.widgets.channels.list.items.ChannelListItemPrivate
 import com.lytefast.flexinput.R
 import java.util.WeakHashMap
+import java.util.concurrent.ConcurrentHashMap
 
 private const val PRIVATE_CHANNELS_ID = 0L
 private const val PINNED_FLAG = 0x800
 private const val DM_ROW_END_TAG = "DMRowTopEnd"
+
+private val pinIcons = WeakHashMap<ImageView, Long>()
+private val pendingPins = ConcurrentHashMap<Long, Boolean>()
 
 @AliucordPlugin
 class DMPins : Plugin() {
@@ -95,6 +100,7 @@ class DMPins : Plugin() {
             pinIcons[icon] = id
             icon.visibility = if (isPinned(id)) View.VISIBLE else View.GONE
             icon.setColorFilter(name.currentTextColor)
+            updateEndMargin(icon)
         }
 
         // sort dm rows
@@ -127,14 +133,27 @@ class DMPins : Plugin() {
         ?.flags
         ?: 0
 
-    private fun isPinned(id: Long) =
-        getFlags(id) and PINNED_FLAG != 0
+    private fun isPinned(id: Long): Boolean {
+        val stored = getFlags(id) and PINNED_FLAG != 0
+        val pending = pendingPins[id] ?: return stored
+
+        if (stored == pending)
+            pendingPins.remove(id)
+
+        return pending
+    }
 
     private fun setPinned(id: Long, pinned: Boolean) {
         val flags = getFlags(id)
         val newFlags = if (pinned) flags or PINNED_FLAG else flags and PINNED_FLAG.inv()
-        val icon = pinIcons.entries.firstOrNull { it.value == id }?.key
-        icon?.visibility = if (pinned) View.VISIBLE else View.GONE
+
+        pendingPins[id] = pinned
+        val icons = pinIcons.entries.filter { it.value == id }.map { it.key }
+
+        icons.forEach {
+            it.visibility = if (pinned) View.VISIBLE else View.GONE
+            updateEndMargin(it)
+        }
 
         Utils.threadPool.execute {
             val settings = RestAPIParams.UserGuildSettings(id, RestAPIParams.UserGuildSettings.ChannelOverride(null, newFlags))
@@ -145,17 +164,36 @@ class DMPins : Plugin() {
                 .second
 
             if (error != null) {
-                icon?.let { pinIcon ->
-                    pinIcon.post {
-                        if (pinIcons[pinIcon] == id)
-                            pinIcon.visibility = if (pinned) View.GONE else View.VISIBLE
+                pendingPins.remove(id)
+                icons.forEach { icon ->
+                    icon.post {
+                        if (pinIcons[icon] == id) {
+                            icon.visibility = if (isPinned(id)) View.VISIBLE else View.GONE
+                            updateEndMargin(icon)
+                        }
                     }
+                    
                 }
-
                 logger.error("Failed to update DM pin state for $id", error)
             }
         }
     }
 
-    override fun stop(context: Context) { patcher.unpatchAll(); pinIcons.clear() }
+    private fun updateEndMargin(icon: ImageView) {
+        val row = icon.parent as? RelativeLayout ?: return
+        val end = row.findViewWithTag<View>(DM_ROW_END_TAG) ?: return
+        val name = row.findViewById<TextView>("channels_list_item_private_name")
+        val content = name.parent.parent as LinearLayout
+        val timestamp = end.findViewWithTag<TextView>("DMTimestamps")
+        val timestampWidth = if (timestamp?.visibility == View.VISIBLE)
+            timestamp.paint.measureText(timestamp.text.toString()).toInt()
+        else 0
+        val pinWidth = if (icon.visibility == View.VISIBLE) 16.dp else 0
+        val params = content.layoutParams as RelativeLayout.LayoutParams
+
+        params.marginEnd = 16.dp + timestampWidth + pinWidth
+        content.layoutParams = params
+    }
+
+    override fun stop(context: Context) { patcher.unpatchAll(); pinIcons.clear(); pendingPins.clear() }
 }
