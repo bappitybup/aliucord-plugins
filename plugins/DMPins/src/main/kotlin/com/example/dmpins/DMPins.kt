@@ -34,7 +34,6 @@ private const val PRIVATE_CHANNELS_ID = 0L
 private const val PINNED_FLAG = 0x800
 private const val DM_ROW_END_TAG = "DMRowTopEnd"
 
-
 @AliucordPlugin
 class DMPins : Plugin() {
     private val pinIcons = WeakHashMap<ImageView, Long>()
@@ -165,7 +164,7 @@ class DMPins : Plugin() {
         val row = end.parent as? RelativeLayout ?: return
         val content = row.findViewById<TextView>("channels_list_item_private_name").parent.parent as LinearLayout
         val params = content.layoutParams as RelativeLayout.LayoutParams
-        
+
         end.measure(0, 0)
         params.marginEnd = 16.dp + end.measuredWidth
         content.layoutParams = params
