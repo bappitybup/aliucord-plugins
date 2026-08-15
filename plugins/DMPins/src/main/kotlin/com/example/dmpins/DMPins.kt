@@ -34,12 +34,11 @@ private const val PRIVATE_CHANNELS_ID = 0L
 private const val PINNED_FLAG = 0x800
 private const val DM_ROW_END_TAG = "DMRowTopEnd"
 
-private val pinIcons = WeakHashMap<ImageView, Long>()
-private val pendingPins = ConcurrentHashMap<Long, Boolean>()
 
 @AliucordPlugin
 class DMPins : Plugin() {
     private val pinIcons = WeakHashMap<ImageView, Long>()
+    private val pendingPins = ConcurrentHashMap<Long, Boolean>()
     override fun start(context: Context) {
         // add pin action to dm context menu
         patcher.after<WidgetChannelsListItemChannelActions>(
@@ -53,14 +52,14 @@ class DMPins : Plugin() {
             requireView()
                 .findViewById<TextView>("text_action_thread_browser")
                 .apply {
-                    visibility = View.VISIBLE
-                    text = if (pinned) "Unpin" else "Pin"
-                    setCompoundDrawablesWithIntrinsicBounds(R.e.ic_pin_24dp, 0, 0, 0)
-                    setOnClickListener {
-                        setPinned(channel.id, !pinned)
-                        dismiss()
-                    }
+                visibility = View.VISIBLE
+                text = if (pinned) "Unpin" else "Pin"
+                setCompoundDrawablesWithIntrinsicBounds(R.e.ic_pin_24dp, 0, 0, 0)
+                setOnClickListener {
+                    setPinned(channel.id, !pinned)
+                    dismiss()
                 }
+            }
         }
 
         // show glyph on pinned dm rows
@@ -75,7 +74,7 @@ class DMPins : Plugin() {
                     tag = "DMPins"
                     setImageResource(R.e.ic_pin_24dp)
                     layoutParams = LinearLayout.LayoutParams(12.dp, 12.dp).apply {
-                        marginEnd = 4.dp
+                        marginEnd = 4.dp 
                     }
                     end.addView(this, 0)
                 }
@@ -164,10 +163,9 @@ class DMPins : Plugin() {
 
     private fun updateEndMargin(end: LinearLayout) {
         val row = end.parent as? RelativeLayout ?: return
-        val name = row.findViewById<TextView>("channels_list_item_private_name")
-        val content = name.parent.parent as LinearLayout
+        val content = row.findViewById<TextView>("channels_list_item_private_name").parent.parent as LinearLayout
         val params = content.layoutParams as RelativeLayout.LayoutParams
-
+        
         end.measure(0, 0)
         params.marginEnd = 16.dp + end.measuredWidth
         content.layoutParams = params
