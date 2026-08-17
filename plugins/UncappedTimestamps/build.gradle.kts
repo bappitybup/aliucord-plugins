@@ -1,9 +1,12 @@
-version = "1.0.2"
+version = "1.0.3"
 description = "Uncaps the weird timestamp text width limit so it reaches the edge of the chat and wraps to new lines."
 
 aliucord {
     changelog.set(
         """
+        # 1.0.3
+        * Actually for real for real this time fix timestamp wrapping failing sometimes.
+
         # 1.0.2
         * Actually for real this time fix timestamp wrapping failing sometimes.
 
