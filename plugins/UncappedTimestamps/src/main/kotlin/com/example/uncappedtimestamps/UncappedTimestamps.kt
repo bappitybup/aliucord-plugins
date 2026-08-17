@@ -30,7 +30,12 @@ class UncappedTimestamps : Plugin() {
 
             timestamp.allowWrapping(header, name, tag)
             itemText.below(header.id)
+            if (header.width > 0) {
+                header.measure(android.view.View.MeasureSpec.makeMeasureSpec(header.width, android.view.View.MeasureSpec.EXACTLY), 0)
+                if ((timestamp.layout?.lineCount ?: 1) > 1 && timestamp.moveBelow(header, name, tag)) itemText.below(timestamp.id)
+            }
             timestamp.post {
+                if (timestamp.parent !== header) return@post
                 val wrapped = (timestamp.layout?.lineCount ?: 1) > 1
                 if (wrapped && timestamp.moveBelow(header, name, tag)) {
                     itemText.below(timestamp.id)
