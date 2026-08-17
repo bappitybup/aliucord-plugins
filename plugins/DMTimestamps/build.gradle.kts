@@ -1,9 +1,12 @@
-version = "1.0.0"
+version = "1.0.1"
 description = "shows the age of the most recent message on a dm row"
 
 aliucord {
     changelog.set(
         """
+        # 1.0.1
+        * Fix stale dm timestamps by refreshing rows when recent message data updates.
+
         # 1.0.0
         * Initial release.
         """.trimIndent(),

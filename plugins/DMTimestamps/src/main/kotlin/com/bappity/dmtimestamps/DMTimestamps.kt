@@ -6,6 +6,7 @@ import android.view.View
 import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
+import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
 import com.aliucord.patcher.*
@@ -13,17 +14,34 @@ import com.aliucord.utils.DimenUtils.dp
 import com.aliucord.utils.ViewUtils.addTo
 import com.aliucord.utils.ViewUtils.findViewById
 import com.aliucord.wrappers.ChannelWrapper.Companion.id
+import com.discord.stores.StoreMessagesMostRecent
 import com.discord.stores.StoreStream
 import com.discord.utilities.SnowflakeUtils
 import com.discord.widgets.channels.list.WidgetChannelsListAdapter
 import com.discord.widgets.channels.list.items.ChannelListItem
 import com.discord.widgets.channels.list.items.ChannelListItemPrivate
+import java.util.WeakHashMap
 
 private const val DM_ROW_END_TAG = "DMRowTopEnd"
 
 @AliucordPlugin
 class DMTimestamps : Plugin() {
+    private val rows = WeakHashMap<TextView, Long>()
+
     override fun start(context: Context) {
+        val store = StoreStream.getMessagesMostRecent()
+
+        fun update(label: TextView, channelId: Long) {
+            val age = store.mostRecentIds[channelId]?.let { formatAge(SnowflakeUtils.toTimestamp(it)) }
+            label.visibility = if (age == null) View.GONE else View.VISIBLE
+            age?.let { label.text = it }
+        }
+
+        // update all rows timestamps when the most recent message changes
+        patcher.after<StoreMessagesMostRecent>("snapshotData") {
+            Utils.mainThread.post { rows.forEach { (label, channelId) -> update(label, channelId) } }
+        }
+
         // show most recent message age on every dm row
         patcher.after<WidgetChannelsListAdapter.ItemChannelPrivate>(
             "onConfigure", Int::class.java, ChannelListItem::class.java,
@@ -38,14 +56,10 @@ class DMTimestamps : Plugin() {
                 }
 
             val channelId = (item as ChannelListItemPrivate).channel.id
-            val age = StoreStream.getMessagesMostRecent().mostRecentIds[channelId]?.let { formatAge(SnowflakeUtils.toTimestamp(it)) }
-
-            label.visibility = if (age == null) View.GONE else View.VISIBLE
-            age?.let {
-                label.text = it
-                label.setTextColor(name.currentTextColor)
-                label.alpha = 0.7f
-            }
+            rows[label] = channelId
+            label.setTextColor(name.currentTextColor)
+            label.alpha = 0.7f
+            update(label, channelId)
         }
     }
 
@@ -75,5 +89,5 @@ class DMTimestamps : Plugin() {
         }
     }
 
-    override fun stop(context: Context) { patcher.unpatchAll() }
+    override fun stop(context: Context) { patcher.unpatchAll(); rows.clear() }
 }
