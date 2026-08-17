@@ -176,10 +176,7 @@ class DMPins : Plugin() {
                 tag = DM_ROW_END_TAG
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                layoutParams = RelativeLayout.LayoutParams(
-                    RelativeLayout.LayoutParams.WRAP_CONTENT,
-                    16.dp,
-                ).apply {
+                layoutParams = RelativeLayout.LayoutParams(RelativeLayout.LayoutParams.WRAP_CONTENT,16.dp).apply {
                     addRule(RelativeLayout.ALIGN_PARENT_TOP)
                     addRule(RelativeLayout.ALIGN_PARENT_END)
                     topMargin = 2.dp
