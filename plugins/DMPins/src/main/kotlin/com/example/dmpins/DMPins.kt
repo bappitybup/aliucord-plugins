@@ -90,7 +90,8 @@ class DMPins : Plugin() {
             val id = (item as ChannelListItemPrivate).channel.id
             pinIcons[icon] = id
             icon.visibility = if (isPinned(id)) View.VISIBLE else View.GONE
-            icon.setColorFilter(name.currentTextColor)
+            val color = name.currentTextColor
+            icon.setColorFilter(if (color ushr 24 == 0) 0xFFFFFFFF.toInt() else color)
             updateEndMargin(end)
         }
 
@@ -193,7 +194,6 @@ class DMPins : Plugin() {
                     marginEnd = 8.dp
                 }
             }
-        end.translationZ = 1f
         return end
     }
 
