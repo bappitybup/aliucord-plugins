@@ -36,6 +36,9 @@ class DMTimestamps : Plugin() {
             val age = store.mostRecentIds[channelId]?.let { formatAge(SnowflakeUtils.toTimestamp(it)) }
             label.visibility = if (age == null) View.GONE else View.VISIBLE
             age?.let { label.text = it }
+            val end = label.parent as? LinearLayout
+            if (end != null)
+                updateEndMargin(end)
         }
 
         // update all rows timestamps when the most recent message changes
@@ -74,8 +77,18 @@ class DMTimestamps : Plugin() {
         }
     }
 
-    private fun getEnd(row: RelativeLayout): LinearLayout {
-        val end = row.findViewWithTag<LinearLayout>(DM_ROW_END_TAG)
+    private fun updateEndMargin(end: LinearLayout) {
+        val row = end.parent as? RelativeLayout ?: return
+        val content = row.findViewById<TextView>("channels_list_item_private_name").parent.parent as LinearLayout
+        val params = content.layoutParams as RelativeLayout.LayoutParams
+
+        end.measure(0, 0)
+        params.marginEnd = 16.dp + end.measuredWidth
+        content.layoutParams = params
+    }
+
+    private fun getEnd(row: RelativeLayout) =
+        row.findViewWithTag<LinearLayout>(DM_ROW_END_TAG)
             ?: LinearLayout(row.context).addTo(row) {
                 tag = DM_ROW_END_TAG
                 orientation = LinearLayout.HORIZONTAL
@@ -87,9 +100,6 @@ class DMTimestamps : Plugin() {
                     marginEnd = 8.dp
                 }
             }
-        end.translationZ = 1f
-        return end
-    }
 
     private fun formatAge(timestamp: Long): String {
         val minutes = ((System.currentTimeMillis() - timestamp) / 60_000).coerceAtLeast(1)
