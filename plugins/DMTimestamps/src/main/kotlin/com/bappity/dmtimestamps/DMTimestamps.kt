@@ -71,7 +71,8 @@ class DMTimestamps : Plugin() {
 
             val channelId = (item as ChannelListItemPrivate).channel.id
             rows[label] = channelId
-            label.setTextColor(name.currentTextColor)
+            val color = name.currentTextColor
+            label.setTextColor(if (color ushr 24 == 0) 0xFFFFFFFF.toInt() else color)
             label.alpha = 0.7f
             update(label, channelId)
         }
