@@ -171,8 +171,8 @@ class DMPins : Plugin() {
         content.layoutParams = params
     }
 
-    private fun getEnd(row: RelativeLayout): LinearLayout {
-        val end = row.findViewWithTag<LinearLayout>(DM_ROW_END_TAG)
+    private fun getEnd(row: RelativeLayout) =
+        row.findViewWithTag<LinearLayout>(DM_ROW_END_TAG)
             ?: LinearLayout(row.context).addTo(row) {
                 tag = DM_ROW_END_TAG
                 orientation = LinearLayout.HORIZONTAL
@@ -184,8 +184,6 @@ class DMPins : Plugin() {
                     marginEnd = 8.dp
                 }
             }
-        return end
-    }
 
     override fun stop(context: Context) { patcher.unpatchAll(); pinIcons.clear(); pendingPins.clear() }
 }
