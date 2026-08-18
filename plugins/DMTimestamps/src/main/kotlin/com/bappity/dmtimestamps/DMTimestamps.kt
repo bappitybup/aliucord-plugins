@@ -23,7 +23,6 @@ import com.discord.widgets.channels.list.items.ChannelListItemPrivate
 import java.util.WeakHashMap
 
 private const val DM_ROW_END_TAG = "DMRowTopEnd"
-private const val PRIORITY = 10
 
 @AliucordPlugin
 class DMTimestamps : Plugin() {
@@ -54,19 +53,9 @@ class DMTimestamps : Plugin() {
             val name = row.findViewById<TextView>("channels_list_item_private_name")
             val end = getEnd(row)
             val label = end.findViewWithTag<TextView>("DMTimestamps")
-                ?: TextView(end.context).apply {
+                ?: TextView(end.context).addTo(end) {
                     tag = "DMTimestamps"
-                    setTag(name.id, PRIORITY)
                     textSize = 10f
-                    var index = end.childCount
-                    for (i in 0 until end.childCount) {
-                        val priority = end.getChildAt(i).getTag(name.id) as? Int ?: 0
-                        if (PRIORITY > priority) {
-                            index = i
-                            break
-                        }
-                    }
-                    end.addView(this, index)
                 }
 
             val channelId = (item as ChannelListItemPrivate).channel.id

@@ -33,7 +33,6 @@ import java.util.concurrent.ConcurrentHashMap
 private const val PRIVATE_CHANNELS_ID = 0L
 private const val PINNED_FLAG = 0x800
 private const val DM_ROW_END_TAG = "DMRowTopEnd"
-private const val PRIORITY = 20
 
 @AliucordPlugin
 class DMPins : Plugin() {
@@ -72,20 +71,11 @@ class DMPins : Plugin() {
             val icon = end.findViewWithTag<ImageView>("DMPins")
                 ?: ImageView(end.context).apply {
                     tag = "DMPins"
-                    setTag(name.id, PRIORITY)
                     setImageResource(R.e.ic_pin_24dp)
                     layoutParams = LinearLayout.LayoutParams(12.dp, 12.dp).apply {
                         marginEnd = 4.dp 
                     }
-                    var index = end.childCount
-                    for (i in 0 until end.childCount) {
-                        val priority = end.getChildAt(i).getTag(name.id) as? Int ?: 0
-                        if (PRIORITY > priority) {
-                            index = i
-                            break
-                        }
-                    }
-                    end.addView(this, index)
+                    end.addView(this, 0)
                 }
             val id = (item as ChannelListItemPrivate).channel.id
             pinIcons[icon] = id
