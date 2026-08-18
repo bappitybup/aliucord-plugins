@@ -23,6 +23,7 @@ import com.discord.widgets.channels.list.items.ChannelListItemPrivate
 import java.util.WeakHashMap
 
 private const val DM_ROW_END_TAG = "DMRowTopEnd"
+private const val PRIORITY = 10
 
 @AliucordPlugin
 class DMTimestamps : Plugin() {
@@ -50,9 +51,19 @@ class DMTimestamps : Plugin() {
             val name = row.findViewById<TextView>("channels_list_item_private_name")
             val end = getEnd(row)
             val label = end.findViewWithTag<TextView>("DMTimestamps")
-                ?: TextView(end.context).addTo(end) {
+                ?: TextView(end.context).apply {
                     tag = "DMTimestamps"
+                    setTag(name.id, PRIORITY)
                     textSize = 10f
+                    var index = end.childCount
+                    for (i in 0 until end.childCount) {
+                        val priority = end.getChildAt(i).getTag(name.id) as? Int ?: 0
+                        if (PRIORITY > priority) {
+                            index = i
+                            break
+                        }
+                    }
+                    end.addView(this, index)
                 }
 
             val channelId = (item as ChannelListItemPrivate).channel.id
@@ -63,8 +74,8 @@ class DMTimestamps : Plugin() {
         }
     }
 
-    private fun getEnd(row: RelativeLayout) =
-        row.findViewWithTag<LinearLayout>(DM_ROW_END_TAG)
+    private fun getEnd(row: RelativeLayout): LinearLayout {
+        val end = row.findViewWithTag<LinearLayout>(DM_ROW_END_TAG)
             ?: LinearLayout(row.context).addTo(row) {
                 tag = DM_ROW_END_TAG
                 orientation = LinearLayout.HORIZONTAL
@@ -76,6 +87,9 @@ class DMTimestamps : Plugin() {
                     marginEnd = 8.dp
                 }
             }
+        end.translationZ = 1f
+        return end
+    }
 
     private fun formatAge(timestamp: Long): String {
         val minutes = ((System.currentTimeMillis() - timestamp) / 60_000).coerceAtLeast(1)
