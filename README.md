@@ -8,3 +8,4 @@ for things that annoy me
 | [UncappedTimestamps](https://github.com/bappitybup/aliucord-plugins/raw/builds/UncappedTimestamps.zip)         | Uncaps the weird timestamp text width limit so it reaches the edge of the chat and wraps to new lines.                           |
 | [DMPins](https://github.com/bappitybup/aliucord-plugins/raw/builds/DMPins.zip) | Backports discordrn dm pins to aliucord |
 | [DMTimestamps](https://github.com/bappitybup/aliucord-plugins/raw/builds/DMTimestamps.zip)         | Shows the age of the most recent message on a dm row.                           |
+| [AttachmentFocusFix](https://github.com/bappitybup/aliucord-plugins/raw/builds/AttachmentFocusFix.zip)         | Keeps the chat input focused when attachments are added, removed, or sent.                           |
